@@ -1,7 +1,7 @@
 {
   "name": "get_notebook_mcp_server",
-  "version": "1.0.3",
-  "description": "MCP server for Get Notes API integration",
+  "version": "1.1.1",
+  "description": "MCP server for Get Notes API integration with multi-knowledge base support",
   "type": "module",
   "main": "index.js",
   "bin": {
@@ -9,7 +9,8 @@
   },
   "files": [
     "index.js",
-    "src"
+    "src",
+    "knowledge_bases.json"
   ],
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"

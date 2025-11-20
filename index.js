@@ -9,18 +9,9 @@ import { z } from 'zod';
 import dotenv from 'dotenv';
 import { ApiClient } from './src/api/client.js';
 import logger from './src/logger.js';
+import { loadKnowledgeBases, getKnowledgeBases, getKnowledgeBaseById } from './src/config/knowledgeBases.js';
 
 dotenv.config();
-
-const API_KEY = process.env.GET_API_KEY;
-const DEFAULT_TOPIC_ID = process.env.GET_NOTE_TOPIC_ID;
-
-if (!API_KEY) {
-    logger.error('GET_API_KEY environment variable is required');
-    process.exit(1);
-}
-
-const apiClient = new ApiClient({ apiKey: API_KEY });
 
 const server = new Server(
     {
@@ -37,25 +28,33 @@ const server = new Server(
 /**
  * Tool Definitions
  */
+const LIST_KNOWLEDGE_BASES_TOOL = {
+    name: 'list_knowledge_bases',
+    description: 'List available knowledge bases with their IDs and descriptions. You MUST use this tool first to find the correct kb_id for search_knowledge or recall_knowledge.',
+    inputSchema: {
+        type: 'object',
+        properties: {},
+    }
+};
+
 const SEARCH_KNOWLEDGE_TOOL = {
     name: 'search_knowledge',
     description: 'Search knowledge base with AI processing. Returns synthesized answers and references.',
     inputSchema: {
         type: 'object',
         properties: {
+            kb_id: {
+                type: 'string',
+                description: 'The ID of the knowledge base to search. Optional if only one KB is configured or to use the default.'
+            },
             question: {
                 type: 'string',
                 description: 'The question to ask'
             },
-            topic_ids: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'List of knowledge base IDs. If not provided, uses the default configured topic ID.'
-            },
             deep_seek: {
                 type: 'boolean',
                 description: 'Enable deep thinking mode',
-                default: true
+                default: false
             },
             history: {
                 type: 'array',
@@ -79,13 +78,13 @@ const RECALL_KNOWLEDGE_TOOL = {
     inputSchema: {
         type: 'object',
         properties: {
+            kb_id: {
+                type: 'string',
+                description: 'The ID of the knowledge base to search. Optional if only one KB is configured or to use the default.'
+            },
             question: {
                 type: 'string',
                 description: 'The question or query'
-            },
-            topic_id: {
-                type: 'string',
-                description: 'Knowledge base ID. If not provided, uses the default configured topic ID.'
             },
             top_k: {
                 type: 'number',
@@ -104,7 +103,7 @@ const RECALL_KNOWLEDGE_TOOL = {
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
-        tools: [SEARCH_KNOWLEDGE_TOOL, RECALL_KNOWLEDGE_TOOL],
+        tools: [LIST_KNOWLEDGE_BASES_TOOL, SEARCH_KNOWLEDGE_TOOL, RECALL_KNOWLEDGE_TOOL],
     };
 });
 
@@ -113,24 +112,60 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const { name, arguments: args } = request.params;
 
         switch (name) {
+            case 'list_knowledge_bases': {
+                const kbs = getKnowledgeBases();
+                // Return simplified list (hide sensitive config)
+                const publicKbs = kbs.map(kb => ({
+                    id: kb.id,
+                    name: kb.name,
+                    description: kb.description
+                }));
+
+                return {
+                    content: [
+                        {
+                            type: 'text',
+                            text: JSON.stringify(publicKbs, null, 2),
+                        },
+                    ],
+                };
+            }
+
             case 'search_knowledge': {
-                const params = { ...args };
+                const { kb_id, ...params } = args;
+                let kb;
 
-                // Handle default topic_ids
-                if (!params.topic_ids || params.topic_ids.length === 0) {
-                    if (DEFAULT_TOPIC_ID) {
-                        params.topic_ids = [DEFAULT_TOPIC_ID];
-                    } else {
-                        throw new Error('topic_ids is required (no default configured)');
+                if (kb_id) {
+                    kb = getKnowledgeBaseById(kb_id);
+                    if (!kb) {
+                        throw new Error(`Knowledge base not found: ${kb_id}`);
                     }
+                } else {
+                    // Default to the first one
+                    const kbs = getKnowledgeBases();
+                    if (kbs.length === 0) {
+                        throw new Error('No knowledge bases configured');
+                    }
+                    kb = kbs[0];
                 }
 
-                // Ensure topic_ids is array
-                if (!Array.isArray(params.topic_ids)) {
-                    throw new Error('topic_ids must be an array');
+                // Initialize client for this specific KB
+                const client = new ApiClient({
+                    apiKey: kb.config.api_key,
+                    baseUrl: kb.config.api_endpoint
+                });
+
+                // Inject topic_id from config (API requires array format but only supports 1)
+                if (kb.config.topic_id) {
+                    params.topic_ids = [kb.config.topic_id];
                 }
 
-                const response = await apiClient.searchKnowledge(params);
+                // Set default value for deep_seek if not provided
+                if (params.deep_seek === undefined) {
+                    params.deep_seek = false;
+                }
+
+                const response = await client.searchKnowledge(params);
 
                 return {
                     content: [
@@ -143,18 +178,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             case 'recall_knowledge': {
-                const params = { ...args };
+                const { kb_id, ...params } = args;
+                let kb;
 
-                // Handle default topic_id
-                if (!params.topic_id) {
-                    if (DEFAULT_TOPIC_ID) {
-                        params.topic_id = DEFAULT_TOPIC_ID;
-                    } else {
-                        throw new Error('topic_id is required (no default configured)');
+                if (kb_id) {
+                    kb = getKnowledgeBaseById(kb_id);
+                    if (!kb) {
+                        throw new Error(`Knowledge base not found: ${kb_id}`);
                     }
+                } else {
+                    // Default to the first one
+                    const kbs = getKnowledgeBases();
+                    if (kbs.length === 0) {
+                        throw new Error('No knowledge bases configured');
+                    }
+                    kb = kbs[0];
                 }
 
-                const response = await apiClient.recallKnowledge(params);
+                const client = new ApiClient({
+                    apiKey: kb.config.api_key,
+                    baseUrl: kb.config.api_endpoint
+                });
+
+                // Inject topic_id from config
+                if (kb.config.topic_id) {
+                    params.topic_id = kb.config.topic_id;
+                }
+
+                const response = await client.recallKnowledge(params);
                 return {
                     content: [
                         {
@@ -183,6 +234,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function runServer() {
+    await loadKnowledgeBases();
     const transport = new StdioServerTransport();
     await server.connect(transport);
     logger.info('Get Notes MCP Server running on stdio');

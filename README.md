@@ -28,8 +28,8 @@ A Model Context Protocol (MCP) server for integrating with Get Notes API. This s
    ```
 4. Configure your API key in `.env`:
    ```
-   GET_API_KEY=your_api_key_here
-   GET_NOTE_TOPIC_ID=your_topic_id_here
+   GET_API_KEY=T0TR1HWqw+tL00gVc5PPoXDnGIUIuPw7QCBeb1dMC6afCojR9WpHyuZicEFJjkMg3oZYS0HB/S3vqOj7+0e5FGoVtYuv938zkR8=
+   GET_NOTE_TOPIC_ID=RYk1kmRJ
    ```
 
 ### Usage
@@ -44,25 +44,106 @@ npx get_notebook_mcp_server
 
 #### MCP Configuration (Claude Desktop)
 
-Add the following configuration to your `claude_desktop_config.json`:
+**Option 1: Single Knowledge Base (Simple Setup)**
+
+For a single knowledge base, add this to your `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "get-notes": {
       "command": "npx",
-      "args": [
-        "-y",
-        "get_notebook_mcp_server"
-      ],
+      "args": ["-y", "get_notebook_mcp_server"],
       "env": {
-        "GET_API_KEY": "your_api_key_here",
-        "GET_NOTE_TOPIC_ID": "your_topic_id_here"
+        "GET_API_KEY": "T0TR1HWqw+tL00gVc5PPoXDnGIUIuPw7QCBeb1dMC6afCojR9WpHyuZicEFJjkMg3oZYS0HB/S3vqOj7+0e5FGoVtYuv938zkR8=",
+        "GET_NOTE_TOPIC_ID": "RYk1kmRJ"
       }
     }
   }
 }
 ```
+
+**Option 2: Multiple Knowledge Bases (Grouped Configuration - Recommended)**
+
+For multiple knowledge bases sharing the same API key, use grouped configuration. The system will automatically expand them into individual knowledge bases:
+
+```json
+{
+  "mcpServers": {
+    "get-notes": {
+      "command": "npx",
+      "args": ["-y", "get_notebook_mcp_server"],
+      "env": {
+        "GET_KNOWLEDGE_BASES": "[{\"id\":\"medical_group\",\"name\":\"Medical Knowledge Bases\",\"config\":{\"api_key\":\"T0TR1HWqw+tL00gVc5PPoXDnGIUIuPw7QCBeb1dMC6afCojR9WpHyuZicEFJjkMg3oZYS0HB/S3vqOj7+0e5FGoVtYuv938zkR8=\",\"topics\":[{\"id\":\"kb_pancreatic_trials\",\"name\":\"Tumor Clinical Trials KB\",\"topic_id\":\"RYk1kmRJ\"},{\"id\":\"kb_patient_experience\",\"name\":\"Patient Experience KB\",\"topic_id\":\"mnyV9OjY\"}]}}]"
+      }
+    }
+  }
+}
+```
+
+This configuration will be automatically expanded into two independent knowledge bases: `kb_pancreatic_trials` and `kb_patient_experience`.
+
+**Option 3: Using Local Configuration File (Recommended for Development)**
+
+Create a `knowledge_bases.json` file in your project root:
+
+```json
+[
+  {
+    "id": "demo_group",
+    "name": "Sam's Knowledge Bases",
+    "description": "Knowledge bases sharing the same API Key",
+    "config": {
+      "api_key": "T0TR1HWqw+tL00gVc5PPoXDnGIUIuPw7QCBeb1dMC6afCojR9WpHyuZicEFJjkMg3oZYS0HB/S3vqOj7+0e5FGoVtYuv938zkR8=",
+      "api_endpoint": "https://open-api.biji.com/getnote/openapi",
+      "topics": [
+        {
+          "id": "kb_pancreatic_trials",
+          "name": "Tumor Clinical Trials Knowledge Base",
+          "description": "Knowledge base about tumor clinical trials",
+          "topic_id": "RYk1kmRJ"
+        },
+        {
+          "id": "kb_patient_experience",
+          "name": "Patient Experience Information",
+          "description": "Patient experience info including guidelines and treatment experiences",
+          "topic_id": "mnyV9OjY"
+        }
+      ]
+    }
+  }
+]
+```
+
+Then configure Claude Desktop to use the local file:
+
+```json
+{
+  "mcpServers": {
+    "get-notes": {
+      "command": "npx",
+      "args": ["-y", "get_notebook_mcp_server"]
+    }
+  }
+}
+```
+
+#### How Claude Uses Multiple Knowledge Bases
+
+**Claude automatically selects the appropriate knowledge base - no manual selection needed!**
+
+**Workflow:**
+1. **User asks a question**: "How long after pancreatic cancer surgery should chemotherapy start?"
+2. **Claude automatically calls `list_knowledge_bases`**: Views all available knowledge bases
+3. **Claude intelligently selects**: Based on the question content, automatically chooses the most relevant KB (e.g., `kb_pancreatic_trials`)
+4. **Claude calls `search_knowledge`**: Passes the selected `kb_id` and the question
+5. **Returns results**: Claude synthesizes the search results into an answer
+
+**Users can also specify explicitly:**
+- "Search in the Tumor Clinical Trials KB: pancreatic cancer chemotherapy timing"
+- "Find in Patient Experience: chemotherapy side effect management"
+
+This way Claude knows exactly which knowledge base to use.
 
 #### Running Locally
 
@@ -80,21 +161,28 @@ npx @modelcontextprotocol/inspector node index.js
 
 ### Tools
 
+#### `list_knowledge_bases`
+List all available knowledge bases with their IDs, names, and descriptions.
+
+**Parameters:** None
+
+**Returns:** Array of knowledge base information (without sensitive API keys)
+
 #### `search_knowledge`
 Search the knowledge base with AI processing.
 
 **Parameters:**
+- `kb_id` (string, optional): Knowledge base ID. If not provided, uses the first configured KB.
 - `question` (string, required): The question to ask.
-- `topic_ids` (array<string>, optional): List of knowledge base IDs. If not provided, uses `GET_NOTE_TOPIC_ID` from environment.
-- `deep_seek` (boolean): Enable deep thinking mode (default: true).
+- `deep_seek` (boolean): Enable deep thinking mode (default: false).
 - `history` (array): Chat history for context.
 
 #### `recall_knowledge`
 Raw recall from knowledge base without AI synthesis.
 
 **Parameters:**
+- `kb_id` (string, optional): Knowledge base ID. If not provided, uses the first configured KB.
 - `question` (string, required): The question or query.
-- `topic_id` (string, optional): Knowledge base ID. If not provided, uses `GET_NOTE_TOPIC_ID` from environment.
 - `top_k` (number): Number of results to return (default: 10).
 - `intent_rewrite` (boolean): Enable intent rewrite (default: false).
 
@@ -174,8 +262,8 @@ We welcome all contributors, developers, medical professionals, and volunteers t
    ```
 4. 在 `.env` 中配置您的 API 密钥：
    ```
-   GET_API_KEY=your_api_key_here
-   GET_NOTE_TOPIC_ID=your_topic_id_here
+   GET_API_KEY=T0TR1HWqw+tL00gVc5PPoXDnGIUIuPw7QCBeb1dMC6afCojR9WpHyuZicEFJjkMg3oZYS0HB/S3vqOj7+0e5FGoVtYuv938zkR8=
+   GET_NOTE_TOPIC_ID=RYk1kmRJ
    ```
 
 ### 使用方法
@@ -192,6 +280,8 @@ npx get_notebook_mcp_server
 
 将以下配置添加到您的 `claude_desktop_config.json`：
 
+**方式1：单个知识库（简单配置）**
+
 ```json
 {
   "mcpServers": {
@@ -202,13 +292,98 @@ npx get_notebook_mcp_server
         "get_notebook_mcp_server"
       ],
       "env": {
-        "GET_API_KEY": "your_api_key_here",
-        "GET_NOTE_TOPIC_ID": "your_topic_id_here"
+        "GET_API_KEY": "T0TR1HWqw+tL00gVc5PPoXDnGIUIuPw7QCBeb1dMC6afCojR9WpHyuZicEFJjkMg3oZYS0HB/S3vqOj7+0e5FGoVtYuv938zkR8=",
+        "GET_NOTE_TOPIC_ID": "RYk1kmRJ"
       }
     }
   }
 }
 ```
+
+**方式2：多知识库（分组配置，推荐）**
+
+如果多个知识库共享同一个 API Key，可以使用分组配置。系统会自动将其展开为独立的知识库：
+
+```json
+{
+  "mcpServers": {
+    "get-notes-multi": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "get_notebook_mcp_server"
+      ],
+      "env": {
+        "GET_KNOWLEDGE_BASES": "[{\"id\":\"medical_group\",\"name\":\"医学知识库组\",\"config\":{\"api_key\":\"T0TR1HWqw+tL00gVc5PPoXDnGIUIuPw7QCBeb1dMC6afCojR9WpHyuZicEFJjkMg3oZYS0HB/S3vqOj7+0e5FGoVtYuv938zkR8=\",\"topics\":[{\"id\":\"kb_pancreatic_trials\",\"name\":\"肿瘤临床试验知识库\",\"topic_id\":\"RYk1kmRJ\"},{\"id\":\"kb_patient_experience\",\"name\":\"小胰宝病友经验信息\",\"topic_id\":\"mnyV9OjY\"}]}}]"
+      }
+    }
+  }
+}
+```
+
+上述配置会自动展开为两个独立的知识库：`kb_pancreatic_trials` 和 `kb_patient_experience`。
+
+**方式3：使用本地配置文件（推荐用于开发）**
+
+在项目根目录创建 `knowledge_bases.json` 文件：
+
+```json
+[
+  {
+    "id": "demo_group",
+    "name": "sam的知识库",
+    "description": "使用同一个 API Key 的知识库",
+    "config": {
+      "api_key": "T0TR1HWqw+tL00gVc5PPoXDnGIUIuPw7QCBeb1dMC6afCojR9WpHyuZicEFJjkMg3oZYS0HB/S3vqOj7+0e5FGoVtYuv938zkR8=",
+      "api_endpoint": "https://open-api.biji.com/getnote/openapi",
+      "topics": [
+        {
+          "id": "kb_pancreatic_trials",
+          "name": "肿瘤临床试验知识库",
+          "description": "有关肿瘤临床试验的知识库",
+          "topic_id": "RYk1kmRJ"
+        },
+        {
+          "id": "kb_patient_experience",
+          "name": "小胰宝病友经验信息",
+          "description": "小胰宝病友经验信息，包括各种指南和治疗经验",
+          "topic_id": "mnyV9OjY"
+        }
+      ]
+    }
+  }
+]
+```
+
+然后在 Claude Desktop 配置中使用本地文件：
+
+```json
+{
+  "mcpServers": {
+    "get-notes": {
+      "command": "npx",
+      "args": ["-y", "get_notebook_mcp_server"]
+    }
+  }
+}
+```
+
+#### Claude 如何使用多知识库
+
+**Claude 会自动选择合适的知识库，无需手动选择！**
+
+**工作流程：**
+1. **用户提问**："胰腺癌术后多久开始化疗？"
+2. **Claude 自动调用 `list_knowledge_bases`**：查看所有可用的知识库
+3. **Claude 智能选择**：根据问题内容，自动选择最相关的知识库（如 `kb_pancreatic_trials`）
+4. **Claude 调用 `search_knowledge`**：传入选定的 `kb_id` 和问题
+5. **返回结果**：Claude 综合搜索结果给出答案
+
+**用户也可以明确指定：**
+- "在肿瘤临床试验知识库中搜索：胰腺癌化疗方案"
+- "在小胰宝病友经验中查找：化疗副作用处理方法"
+
+这样 Claude 就会明确使用指定的知识库。
 
 #### 本地运行
 
@@ -218,31 +393,38 @@ node index.js
 
 #### 使用 MCP Inspector 测试
 
-您可以使用 MCP Inspector 交互式地测试 MCP 服务器：
+您可以使用 MCP Inspector 交互式测试 MCP 服务器：
 
 ```bash
 npx @modelcontextprotocol/inspector node index.js
 ```
 
-### 工具
+### 工具说明
+
+#### `list_knowledge_bases`
+列出所有可用的知识库及其 ID、名称和描述。
+
+**参数：** 无
+
+**返回：** 知识库信息数组（不包含敏感的 API 密钥）
 
 #### `search_knowledge`
 使用 AI 处理搜索知识库。
 
 **参数：**
-- `question` (string, 必填)：要问的问题。
-- `topic_ids` (array<string>, 选填)：知识库 ID 列表。如果未提供，则使用环境变量中的 `GET_NOTE_TOPIC_ID`。
-- `deep_seek` (boolean)：启用深度思考模式（默认：true）。
-- `history` (array)：用于上下文的聊天记录。
+- `kb_id` (string, 可选): 知识库 ID。如果未提供，使用第一个配置的知识库。
+- `question` (string, 必需): 要提问的问题。
+- `deep_seek` (boolean): 启用深度思考模式（默认值：false）。
+- `history` (array): 用于上下文的聊天历史。
 
 #### `recall_knowledge`
-从知识库中原始召回，不进行 AI 综合。
+从知识库原始召回，不进行 AI 综合。
 
 **参数：**
-- `question` (string, 必填)：问题或查询。
-- `topic_id` (string, 选填)：知识库 ID。如果未提供，则使用环境变量中的 `GET_NOTE_TOPIC_ID`。
-- `top_k` (number)：返回的结果数量（默认：10）。
-- `intent_rewrite` (boolean)：启用意图重写（默认：false）。
+- `kb_id` (string, 可选): 知识库 ID。如果未提供，使用第一个配置的知识库。
+- `question` (string, 必需): 问题或查询。
+- `top_k` (number): 返回结果数量（默认值：10）。
+- `intent_rewrite` (boolean): 启用意图重写（默认值：false）。
 
 ### 开发
 

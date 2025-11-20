@@ -1,0 +1,25 @@
+[
+    {
+        "id": "demo_group",
+        "name": "sam的知识库",
+        "description": "使用同一个 API Key 的示例知识库（方案3：分组配置）",
+        "config": {
+            "api_key": "T0TR1HWqw+tL00gVc5PPoXDnGIUIuPw7QCBeb1dMC6afCojR9WpHyuZicEFJjkMg3oZYS0HB/S3vqOj7+0e5FGoVtYuv938zkR8=",
+            "api_endpoint": "https://open-api.biji.com/getnote/openapi",
+            "topics": [
+                {
+                    "id": "kb_pancreatic_trials",
+                    "name": "肿瘤临床试验知识库",
+                    "description": "有关肿瘤临床试验的知识库",
+                    "topic_id": "RYk1kmRJ"
+                },
+                {
+                    "id": "kb_patient_experience",
+                    "name": "小胰宝病友经验信息",
+                    "description": "小胰宝病友经验信息，包括各种指南和治疗经验",
+                    "topic_id": "mnyV9OjY"
+                }
+            ]
+        }
+    }
+]
