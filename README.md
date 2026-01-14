@@ -1,15 +1,18 @@
 # Get Notes MCP Server / Get 笔记 MCP 服务器
 
+**🎯 Multi-Knowledge Base Support (Multiple KBs Integrated Seamlessly)** | **多知识库支持（多个知识库无缝集成）**
+
 [English](#english) | [中文](#chinese)
 
 <a name="english"></a>
 
 ## 🇬🇧 English
 
-A Model Context Protocol (MCP) server for integrating with Get Notes API. This server provides tools to search and recall knowledge from your Get Notes knowledge base.
+A Model Context Protocol (MCP) server for integrating with Get Notes API. This server provides intelligent tools to search and recall knowledge from **multiple Get Notes knowledge bases** with automatic KB selection.
 
-### Features
+### ✨ Key Features
 
+- **🔀 Multi-Knowledge Base Support**: Seamlessly manage and access multiple knowledge bases. Claude intelligently selects the most relevant KB based on your question.
 - **Knowledge Search**: AI-processed search that returns synthesized answers and references.
 - **Knowledge Recall**: Raw recall of relevant notes and files.
 - **Rate Limiting**: Built-in protection with QPS < 2 and Total Requests < 5000 limits.
@@ -240,10 +243,11 @@ We welcome all contributors, developers, medical professionals, and volunteers t
 
 ## 🇨🇳 中文
 
-这是一个用于集成 Get 笔记 API 的 Model Context Protocol (MCP) 服务器。该服务器提供了从您的 Get 笔记知识库中搜索和召回知识的工具。
+这是一个用于集成 Get 笔记 API 的 Model Context Protocol (MCP) 服务器。该服务器提供了从**多个 Get 笔记知识库**中进行智能搜索和召回的工具，支持自动选择最相关的知识库。
 
-### 功能特性
+### ✨ 核心功能
 
+- **🔀 多知识库支持**：无缝管理和访问多个知识库。Claude 会根据您的问题自动选择最相关的知识库。
 - **知识库搜索 (Knowledge Search)**：经过 AI 处理的搜索，返回综合的答案和引用。
 - **知识库召回 (Knowledge Recall)**：相关笔记和文件的原始召回。
 - **速率限制 (Rate Limiting)**：内置保护，限制 QPS < 2 和总请求数 < 5000。
